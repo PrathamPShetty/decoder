@@ -1,37 +1,41 @@
 import React, { useState, useRef, useEffect } from "react";
 import "../styles/terminal.css";
 import { BACKEND_URL } from "../config";
-
 import axios from "axios";
 
 const Terminal = () => {
+  const didFetch = useRef(false);
+  const terminalBodyRef = useRef(null);
+
   const [messages, setMessages] = useState([
     { text: "System Boot Initialized... [OK]", type: "system" },
     { text: "Target: ALTIUS 2K25 Security Core", type: "system" },
   ]);
   const [questions, setQuestions] = useState([]);
-  const [currentFlagIndex, setCurrentFlagIndex] = useState(1);
+  const [currentFlagIndex, setCurrentFlagIndex] = useState(0); // start at 0
   const [input, setInput] = useState("");
-  const terminalBodyRef = useRef(null);
+
+  const TOTAL_FLAGS = 4; // total number of flags
 
   // Fetch question by flag ID
   const getQuestion = async (flagId) => {
     try {
       const response = await fetch(`${BACKEND_URL}/flag/${flagId}`);
-      console.log("Fetched question response:", response);
       const data = await response.json();
-      console.log("Fetched question data:", data.flag.question);
-      if (data.data) {
+      console.log("Fetched question data:", data);
+      if (data.flag) {
         setQuestions((prev) => [
           ...prev,
           {
-            id: flagId,
+            id: data.flagId,
             prompt: data.flag.question,
             hint: data.flag.hint,
           },
         ]);
 
-        // Show first question in terminal
+        console.log("Questions state updated:", questions[data.flagId - 1]);
+
+        // Show question in terminal
         setMessages((prev) => [
           ...prev,
           { text: data.flag.question, type: "prompt" },
@@ -39,6 +43,10 @@ const Terminal = () => {
       }
     } catch (error) {
       console.error("Error fetching question:", error);
+      setMessages((prev) => [
+        ...prev,
+        { text: `Error fetching Flag ${flagId}`, type: "error" },
+      ]);
     }
   };
 
@@ -47,7 +55,6 @@ const Terminal = () => {
       const response = await axios.post(`${BACKEND_URL}/flag/${flagId}`, {
         answer,
       });
-      console.log("Answer check response:", response.data);
       return response.data.correct;
     } catch (error) {
       console.error("Error checking answer:", error);
@@ -55,21 +62,15 @@ const Terminal = () => {
     }
   };
 
-  const isFinished = currentFlagIndex >= questions.length;
-
-useEffect(() => {
-  const fetchQuestion = async () => {
-    try {
-      await getQuestion(1);
-    } catch (error) {
-      console.error(error);
+  // Initial fetch of first flag
+  useEffect(() => {
+    if (!didFetch.current) {
+      getQuestion(1); // fetch first flag
+      didFetch.current = true;
     }
-  };
+  }, []);
 
-  fetchQuestion();
-}, []);
-
-
+  // Scroll terminal to bottom on new messages
   useEffect(() => {
     if (terminalBodyRef.current) {
       setTimeout(() => {
@@ -84,6 +85,8 @@ useEffect(() => {
     if (isFinished) return;
 
     const currentQuestion = questions[currentFlagIndex];
+    if (!currentQuestion) return;
+
     const userInput = input.trim();
     const currentPromptText = `ALTIUS_FLAG_${currentQuestion.id} > `;
 
@@ -104,37 +107,19 @@ useEffect(() => {
         type: "success",
       });
 
-      const nextFlagIndex = currentFlagIndex + 1;
-      const nextFlagId = nextFlagIndex;
+      const nextIndex = currentFlagIndex + 1;
 
-
-
-      setCurrentFlagIndex(nextFlagIndex);
-
-      // Fetch next flag if available
-      const response = await fetch(`${BACKEND_URL}/flag/${nextFlagId}`);
-      const data = await response.json();
-
-      console.log("Fetched next flag:", data);
-
-      console.log("Next flag ID:", nextFlagId);
-
-      if (data.flag) {
-        setQuestions((prev) => [
-          ...prev,
-          {
-            id: nextFlagId,
-            prompt: data.flag.question,
-            hint: data.flag.hint,
-          },
-        ]);
-        newMessages.push({ text: data.flag.question, type: "prompt" });
+      if (nextIndex < TOTAL_FLAGS) {
+        // Fetch next flag
+        await getQuestion(nextIndex + 1);
       } else {
         newMessages.push({
           text: "MISSION COMPLETE: All flags acquired!",
           type: "system",
         });
       }
+
+      setCurrentFlagIndex(nextIndex);
     } else {
       newMessages[newMessages.length - 1].type = "incorrect-input";
       newMessages.push({
@@ -147,10 +132,11 @@ useEffect(() => {
     setInput("");
   };
 
+  const isFinished = currentFlagIndex >= TOTAL_FLAGS;
+
   const promptText = isFinished
     ? "GOAL_REACHED > "
     : `ALTIUS_FLAG_${questions[currentFlagIndex]?.id || 1} > `;
-
   return (
     <div className="terminal-container">
       <div className="terminal-header">ALTIUS 2K25 - CAPTURE THE FLAG</div>
