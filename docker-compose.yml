@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  backend:
+    build: ./backend
+    container_name: node-backend-app
+    restart: unless-stopped
+    expose:
+      - "3000"       
+
+  frontend:
+    build: ./frontend
+    container_name: react-nginx-app
+    ports:
+      - "5000:80"     
+    restart: unless-stopped
+    depends_on:
+      - backend
