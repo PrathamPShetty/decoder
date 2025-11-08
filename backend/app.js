@@ -15,6 +15,12 @@ app.use(
 app.use(express.json());
 
 
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.ip} ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+
 app.get("/", (req, res) => {
   res.json({ message: "CORS-enabled Express server running!" });
 });

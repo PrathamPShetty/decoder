@@ -1,0 +1,41 @@
+name: Deploy Frontend
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+    
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e  
+            git config --global --add safe.directory /home/pratham/projects/decoder
+
+            echo "🔄 Pulling latest changes..."
+            cd /home/pratham/projects/decoder
+            git fetch origin
+
+            git reset --hard origin/main
+
+            echo "🛑 Stopping old containers..."
+            docker compose down
+
+            echo "📦 Building new Docker images..."
+            docker compose build --no-cache
+
+            echo "🚀 Starting new containers using Blue-Green Deployment..."
+            docker compose up -d --remove-orphans
+
+            echo "✅ Deployment completed successfully!"
