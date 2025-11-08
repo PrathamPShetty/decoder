@@ -18,6 +18,7 @@ const Terminal = () => {
   const getQuestion = async (flagId) => {
     try {
       const response = await fetch(`${BACKEND_URL}/flag/${flagId}`);
+      console.log("Fetched question response:", response);
       const data = await response.json();
       if (data.flag) {
         setQuestions((prev) => [
@@ -55,10 +56,18 @@ const Terminal = () => {
 
   const isFinished = currentFlagIndex >= questions.length;
 
-  useEffect(() => {
-    // Fetch the first question when terminal loads
-    getQuestion(1);
-  }, []);
+useEffect(() => {
+  const fetchQuestion = async () => {
+    try {
+      await getQuestion(1);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  fetchQuestion();
+}, []);
+
 
   useEffect(() => {
     if (terminalBodyRef.current) {
