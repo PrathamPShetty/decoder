@@ -20,7 +20,8 @@ const Terminal = () => {
       const response = await fetch(`${BACKEND_URL}/flag/${flagId}`);
       console.log("Fetched question response:", response);
       const data = await response.json();
-      if (data.flag) {
+      console.log("Fetched question data:", data.flag.question);
+      if (data.data) {
         setQuestions((prev) => [
           ...prev,
           {

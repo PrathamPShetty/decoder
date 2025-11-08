@@ -37,7 +37,7 @@ app.get("/flag/:id", (req, res) => {
   console.log("Fetching flag for ID:", flagId);
 
   const flag = flags[flagId];
-  if (flag) res.json({ flag });
+  if (flag) res.json({ flag: flag,data:true });
   else res.status(404).json({ error: "Flag not found" });
 });
 
