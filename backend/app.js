@@ -14,12 +14,11 @@ app.use(
 
 app.use(express.json());
 
-// Default route
+
 app.get("/", (req, res) => {
   res.json({ message: "CORS-enabled Express server running!" });
 });
 
-// GET route for flags
 app.get("/flag/:id", (req, res) => {
   const flagId = req.params.id;
 
@@ -29,15 +28,18 @@ app.get("/flag/:id", (req, res) => {
     3: { question: "What keyword is used to declare a constant in JavaScript?", hint: "Introduced in ES6." },
   };
 
+  console.log("Fetching flag for ID:", flagId);
+
   const flag = flags[flagId];
   if (flag) res.json({ flag });
   else res.status(404).json({ error: "Flag not found" });
 });
 
-// POST route for answers
+
 app.post("/flag/:id", (req, res) => {
   const flagId = req.params.id;
   const answer = req.body.answer;
+  console.log(`Received answer for flag ID ${flagId}:`, answer);
 
   const flags = {
     1: "<a> element",

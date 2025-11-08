@@ -2,41 +2,63 @@ import React, { useState, useRef, useEffect } from "react";
 import "../styles/terminal.css";
 import { BACKEND_URL } from "../config";
 
-
+import axios from "axios";
 
 const Terminal = () => {
   const [messages, setMessages] = useState([
     { text: "System Boot Initialized... [OK]", type: "system" },
     { text: "Target: ALTIUS 2K25 Security Core", type: "system" },
-    { text: questions[0].prompt, type: "prompt" },
   ]);
-
+  const [questions, setQuestions] = useState([]);
+  const [currentFlagIndex, setCurrentFlagIndex] = useState(1);
   const [input, setInput] = useState("");
-  const [currentFlagIndex, setCurrentFlagIndex] = useState(0);
   const terminalBodyRef = useRef(null);
 
-  const [questions,setQuestion] = useState(1);
-
-  const getQuestions = async() =>{
-    try{
-      const response = await fetch(`{BACKEND_URL}/flag/${questions}`);
+  // Fetch question by flag ID
+  const getQuestion = async (flagId) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/flag/${flagId}`);
       const data = await response.json();
-      if(data.flag){
-        const newQuestion = {
-          id: questions,
-          prompt: `ALTIUS_FLAG_${data.flag.id} > ${data.flag.question}`,
-          answer: data.flag.answer,
-          successMessage: `ACCESS GRANTED: Correct! You've captured Flag ${data.flag.id}.`,
-        };
-        setQuestions(prev => [...prev, newQuestion]);
-        setQuestion(questions + 1);
+      if (data.flag) {
+        setQuestions((prev) => [
+          ...prev,
+          {
+            id: flagId,
+            prompt: data.flag.question,
+            hint: data.flag.hint,
+          },
+        ]);
+
+        // Show first question in terminal
+        setMessages((prev) => [
+          ...prev,
+          { text: data.flag.question, type: "prompt" },
+        ]);
       }
-    }catch(error){
+    } catch (error) {
       console.error("Error fetching question:", error);
     }
-  }
+  };
+
+  const checkAnswer = async (flagId, answer) => {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/flag/${flagId}`, {
+        answer,
+      });
+      console.log("Answer check response:", response.data);
+      return response.data.correct;
+    } catch (error) {
+      console.error("Error checking answer:", error);
+      return false;
+    }
+  };
 
   const isFinished = currentFlagIndex >= questions.length;
+
+  useEffect(() => {
+    // Fetch the first question when terminal loads
+    getQuestion(1);
+  }, []);
 
   useEffect(() => {
     if (terminalBodyRef.current) {
@@ -47,13 +69,13 @@ const Terminal = () => {
     }
   }, [messages]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isFinished) return;
 
     const currentQuestion = questions[currentFlagIndex];
     const userInput = input.trim();
-    const currentPromptText = `ALTIUS_FLAG_${currentFlagIndex + 1} > `;
+    const currentPromptText = `ALTIUS_FLAG_${currentQuestion.id} > `;
 
     const inputMessage = {
       text: userInput,
@@ -62,28 +84,51 @@ const Terminal = () => {
     };
 
     let newMessages = [...messages, inputMessage];
-    const isCorrect =
-      userInput.toLowerCase() === currentQuestion.answer.toLowerCase();
+
+    const isCorrect = await checkAnswer(currentQuestion.id, userInput);
 
     if (isCorrect) {
       newMessages[newMessages.length - 1].type = "correct-input";
-      newMessages.push({ text: currentQuestion.successMessage, type: "success" });
+      newMessages.push({
+        text: `ACCESS GRANTED: Flag ${currentQuestion.id} verified.`,
+        type: "success",
+      });
 
       const nextFlagIndex = currentFlagIndex + 1;
+      const nextFlagId = nextFlagIndex;
 
-      if (nextFlagIndex < questions.length) {
-        newMessages.push({
-          text: questions[nextFlagIndex].prompt,
-          type: "prompt",
-        });
-        setCurrentFlagIndex(nextFlagIndex);
+
+
+      setCurrentFlagIndex(nextFlagIndex);
+
+      // Fetch next flag if available
+      const response = await fetch(`${BACKEND_URL}/flag/${nextFlagId}`);
+      const data = await response.json();
+
+      console.log("Fetched next flag:", data);
+
+      console.log("Next flag ID:", nextFlagId);
+
+      if (data.flag) {
+        setQuestions((prev) => [
+          ...prev,
+          {
+            id: nextFlagId,
+            prompt: data.flag.question,
+            hint: data.flag.hint,
+          },
+        ]);
+        newMessages.push({ text: data.flag.question, type: "prompt" });
       } else {
-        setCurrentFlagIndex(nextFlagIndex);
+        newMessages.push({
+          text: "MISSION COMPLETE: All flags acquired!",
+          type: "system",
+        });
       }
     } else {
       newMessages[newMessages.length - 1].type = "incorrect-input";
       newMessages.push({
-        text: `ACCESS DENIED: Incorrect command or flag. Try again for Flag ${currentQuestion.id}.`,
+        text: `ACCESS DENIED: Incorrect command. Try again for Flag ${currentQuestion.id}.`,
         type: "error",
       });
     }
@@ -94,7 +139,7 @@ const Terminal = () => {
 
   const promptText = isFinished
     ? "GOAL_REACHED > "
-    : `ALTIUS_FLAG_${currentFlagIndex + 1} > `;
+    : `ALTIUS_FLAG_${questions[currentFlagIndex]?.id || 1} > `;
 
   return (
     <div className="terminal-container">
